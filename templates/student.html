@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}学生主页 - 图书馆管理系统{% endblock %}
+
+{% block header_actions %}
+    <el-button @click="goHome" size="small" icon="House" round>返回首页</el-button>
+{% endblock %}
+
+{% block content %}
+<el-row :gutter="20">
+    <!-- 左侧快捷信息栏 -->
+    <el-col :span="6">
+        <el-card shadow="never" style="height: 100%;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <el-avatar :size="64" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"></el-avatar>
+                <h3>当前使用学号：[[ currentStudent ]]</h3>
+                <el-tag type="success">安全风控状态: Normal</el-tag>
+            </div>
+            <el-divider></el-divider>
+            <el-alert title="提示: 该学号为测试数据写死。为了简化我们直接模拟学号为 S001 的张三同学在操作。" type="info" :closable="false"></el-alert>
+        </el-card>
+    </el-col>
+    
+    <!-- 右侧主体操作区 -->
+    <el-col :span="18">
+        <el-card shadow="never">
+            <el-tabs v-model="activeTab" @tab-click="handleTabClick">
+                <!-- Tab 1: 图书馆大厅 -->
+                <el-tab-pane label="📚 馆藏查询与借阅" name="books">
+                    <el-table :data="books" style="width: 100%" v-loading="loading">
+                        <el-table-column prop="Bno" label="图书编号" width="120"></el-table-column>
+                        <el-table-column prop="Bname" label="书名"></el-table-column>
+                        <el-table-column prop="Bauthor" label="作者"></el-table-column>
+                        <el-table-column prop="Bpublisher" label="出版社"></el-table-column>
+                        <el-table-column label="在馆余量" width="100">
+                            <template #default="scope">
+                                <el-tag :type="scope.row.Bcount > 0 ? 'success' : 'danger'">
+                                    [[ scope.row.Bcount ]] 本
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="操作" width="120" align="center">
+                            <template #default="scope">
+                                <el-button 
+                                    type="primary" 
+                                    size="small" 
+                                    @click="borrowBook(scope.row)" 
+                                    :disabled="scope.row.Bcount <= 0">借书
+                                </el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </el-tab-pane>
+                
+                <!-- Tab 2: 我的借阅信息 -->
+                <el-tab-pane label="📝 我的借阅记录" name="records">
+                    <el-button type="primary" size="small" icon="Refresh" @click="fetchRecords()" style="margin-bottom:15px">刷新记录</el-button>
+                    <el-table :data="records" style="width: 100%" border v-loading="loadingRecords">
+                        <el-table-column prop="Bname" label="书名"></el-table-column>
+                        <el-table-column prop="Borrow_date" label="借出日期"></el-table-column>
+                        <el-table-column prop="Due_date" label="应还日期"></el-table-column>
+                        <el-table-column prop="Return_date" label="归还日期">
+                            <template #default="scope">
+                                <span v-if="scope.row.Return_date">[[ scope.row.Return_date ]]</span>
+                                <el-tag v-else type="danger">未还</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="Ano" label="经办人编号"></el-table-column>
+                    </el-table>
+                </el-tab-pane>
+            </el-tabs>
+        </el-card>
+    </el-col>
+</el-row>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Flask 的 Jinja 会渲染 {{}}，为了防止和 Vue 的 {{}} 引起冲突。
+    // 我们强制改写 Vue 的插值符号为 [[ ]] 
+    const { createApp, ref, onMounted } = Vue;
+    const { ElMessage, ElMessageBox } = ElementPlus;
+
+    const app = createApp({
+        compilerOptions: {
+            delimiters: ['[[', ']]'] // 重要：改写 Vue 解析模板标识
+        },
+        setup() {
+            const activeTab = ref('books');
+            const loading = ref(false);
+            const loadingRecords = ref(false);
+            
+            const books = ref([]);
+            const records = ref([]);
+            
+            // 写死的测试账户，对应插入数据里的 S001（张三）
+            const currentStudent = ref('S001');
+
+            // 1. 获取图书
+            const fetchBooks = () => {
+                loading.value = true;
+                axios.get('/api/books').then(res => {
+                    if (res.data.code === 200) {
+                        books.value = res.data.data;
+                    }
+                }).finally(() => { loading.value = false; });
+            };
+
+            // 2. 借书业务（调用我们写的牛逼事务）
+            const borrowBook = (book) => {
+                ElMessageBox.confirm(`确认借阅《${book.Bname}》吗？`, '借书确认', {
+                    confirmButtonText: '确定借阅', cancelButtonText: '取消', type: 'info'
+                }).then(() => {
+                    axios.post('/api/borrow', {
+                        sno: currentStudent.value,
+                        bno: book.Bno,
+                        ano: 'A001' // 默认交给 A001经办
+                    }).then(res => {
+                        // 存储过程返回状态 0 为成功，其他为风控报错
+                        if (res.data.status === 0) {
+                            ElMessage.success('操作成功：' + res.data.message);
+                            fetchBooks(); // 同步减量
+                        } else {
+                            ElMessage.error('业务拦截：' + res.data.message);
+                        }
+                    }).catch(err => {
+                        ElMessage.error('服务异常，请查看日志！');
+                    });
+                }).catch(() => {});
+            };
+
+            // 3. 获取自己的借阅历史
+            const fetchRecords = () => {
+                loadingRecords.value = true;
+                axios.get(`/api/student/${currentStudent.value}/records`).then(res => {
+                    if(res.data.code === 200){
+                        records.value = res.data.data;
+                    }
+                }).finally(() => { loadingRecords.value = false; });
+            };
+
+            const handleTabClick = (tab) => {
+                if(tab.paneName === 'records') {
+                    fetchRecords();
+                } else {
+                    fetchBooks();
+                }
+            };
+            
+            const goHome = () => window.location.href = '/';
+
+            // 页面挂载时初始化数据
+            onMounted(() => {
+                fetchBooks();
+            });
+
+            return { 
+                currentStudent, activeTab,
+                books, loading, fetchBooks, borrowBook,
+                records, loadingRecords, fetchRecords, 
+                handleTabClick, goHome 
+            };
+        }
+    });
+    
+    app.use(ElementPlus);
+    registerIcons(app);
+    app.mount('#app');
+</script>
+{% endblock %}

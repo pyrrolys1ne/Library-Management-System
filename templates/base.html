@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}图书馆信息管理系统{% endblock %}</title>
+    
+    <!-- 引入 Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 引入 Element Plus 样式与脚本 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+    <script src="https://unpkg.com/element-plus"></script>
+    <!-- 引入 Element Plus 图标库 -->
+    <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+    <!-- 引入 Axios 请求库 -->
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <style>
+        body { margin: 0; background-color: #f2f3f5; font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif; }
+        #app { min-height: 100vh; display: flex; flex-direction: column; }
+        .system-header { background-color: #409EFF; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header-content { display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px;}
+        .system-title { font-size: 20px; font-weight: bold; margin: 0;}
+        .main-container { padding: 20px; flex: 1; }
+        
+        /* 避免 Vue 加载时的闪烁 */
+        [v-cloak] { display: none; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div id="app" v-cloak>
+        <header class="system-header">
+            <div class="header-content">
+                <h1 class="system-title">📚 图书馆信息管理系统</h1>
+                <div>
+                    {% block header_actions %}
+                    {% endblock %}
+                </div>
+            </div>
+        </header>
+        <main class="main-container">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- 所有的 Vue 脚本放置区 -->
+    {% block scripts %}{% endblock %}
+    
+    <script>
+        // 注册全局 Icon 的常用方法
+        function registerIcons(app) {
+            for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+                app.component(key, component)
+            }
+        }
+    </script>
+</body>
+</html>

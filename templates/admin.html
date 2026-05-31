@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}管理员后台 - 图书馆管理系统{% endblock %}
+
+{% block header_actions %}
+    <el-button @click="goHome" size="small" icon="House" round>返回首页</el-button>
+{% endblock %}
+
+{% block content %}
+<el-row :gutter="20">
+    <!-- 左侧快捷信息栏 -->
+    <el-col :span="5">
+        <el-card shadow="never" style="height: 100%;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <el-avatar :size="64" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"></el-avatar>
+                <h3>工号：A001</h3>
+                <el-tag type="warning">权限级别: Admin</el-tag>
+            </div>
+            <el-divider></el-divider>
+            <p style="color: #606266; font-size:14px; line-height:1.6">管理员工作区包含以下职能：<br><br>1. 处理学生的还书请求，系统底层<el-text type="danger">触发器</el-text>会自动核算是否超期。<br><br>2. 收取学生超期罚款，全部缴清后自动解除学生的封禁状态。</p>
+        </el-card>
+    </el-col>
+    
+    <!-- 右侧主体操作区 -->
+    <el-col :span="19">
+        <el-card shadow="never">
+            <el-tabs v-model="activeTab" @tab-click="handleTabClick">
+                <!-- Tab 1: 还书与借阅管理 -->
+                <el-tab-pane label="📦 待还图书管理" name="borrows">
+                    <el-button type="primary" size="small" icon="Refresh" @click="fetchBorrows()" style="margin-bottom:15px">刷新未还记录</el-button>
+                    <el-table :data="borrowRecords" style="width: 100%" border v-loading="loadingBorrows">
+                        <el-table-column prop="Borrow_id" label="流水号" width="80" align="center"></el-table-column>
+                        <el-table-column prop="Sname" label="借阅人" width="100"></el-table-column>
+                        <el-table-column prop="Bname" label="书名"></el-table-column>
+                        <el-table-column prop="Borrow_date" label="借出日期" width="120"></el-table-column>
+                        <el-table-column prop="Due_date" label="应还日期" width="120"></el-table-column>
+                        <el-table-column label="运行状态" width="100">
+                            <template #default="scope">
+                                <el-tag :type="isOverdue(scope.row.Due_date) ? 'danger' : 'success'">
+                                    [[ isOverdue(scope.row.Due_date) ? '已超期' : '借阅中' ]]
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="工作台操作" width="120" align="center">
+                            <template #default="scope">
+                                <el-button type="success" size="small" @click="returnBook(scope.row)">处理归还</el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </el-tab-pane>
+                
+                <!-- Tab 2: 罚款与解冻管理 -->
+                <el-tab-pane label="💰 超期罚款处理中心" name="penalties">
+                    <el-button type="primary" size="small" icon="Refresh" @click="fetchPenalties()" style="margin-bottom:15px">刷新违期台账</el-button>
+                    <el-table :data="penaltyRecords" style="width: 100%" border v-loading="loadingPenalties">
+                        <el-table-column prop="Penalty_id" label="违约单号" width="100" align="center"></el-table-column>
+                        <el-table-column prop="Sname" label="违约学生" width="100"></el-table-column>
+                        <el-table-column prop="Days_overdue" label="超期天数" width="100">
+                            <template #default="scope">[[ scope.row.Days_overdue ]] 天</template>
+                        </el-table-column>
+                        <el-table-column prop="Fine_amount" label="罚金" width="100">
+                            <template #default="scope">
+                                <span style="color:#F56C6C; font-weight:bold;">¥ [[ scope.row.Fine_amount ]]</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="Pstatus" label="缴费台账" width="120">
+                            <template #default="scope">
+                                <el-tag :type="scope.row.Pstatus === 'Paid' ? 'info' : 'danger'" :effect="scope.row.Pstatus === 'Paid' ? 'plain' : 'dark'">
+                                    [[ scope.row.Pstatus === 'Paid' ? '已缴清' : '未缴清' ]]
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="稽查操作" align="center">
+                            <template #default="scope">
+                                <el-button 
+                                    type="primary" 
+                                    size="small" 
+                                    :disabled="scope.row.Pstatus === 'Paid'"
+                                    @click="payPenalty(scope.row)">
+                                    核销账款并解封
+                                </el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </el-tab-pane>
+            </el-tabs>
+        </el-card>
+    </el-col>
+</el-row>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const { createApp, ref, onMounted } = Vue;
+    const { ElMessage, ElMessageBox } = ElementPlus;
+
+    const app = createApp({
+        compilerOptions: { delimiters: ['[[', ']]'] },
+        setup() {
+            const activeTab = ref('borrows');
+            const loadingBorrows = ref(false);
+            const loadingPenalties = ref(false);
+            
+            const borrowRecords = ref([]);
+            const penaltyRecords = ref([]);
+
+            // 前端只做展示计算。后台真正的定性靠 MySQL 触发器完成。
+            const isOverdue = (dueDateStr) => {
+                const due = new Date(dueDateStr);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                due.setHours(0,0,0,0);
+                return today > due;
+            };
+
+            const fetchBorrows = () => {
+                loadingBorrows.value = true;
+                axios.get('/api/admin/borrow_records').then(res => {
+                    if (res.data.code === 200) {
+                        borrowRecords.value = res.data.data;
+                    }
+                }).finally(() => { loadingBorrows.value = false; });
+            };
+
+            const fetchPenalties = () => {
+                loadingPenalties.value = true;
+                axios.get('/api/admin/penalties').then(res => {
+                    if (res.data.code === 200) {
+                        penaltyRecords.value = res.data.data;
+                    }
+                }).finally(() => { loadingPenalties.value = false; });
+            };
+
+            const handleTabClick = (tab) => {
+                if (tab.paneName === 'penalties') fetchPenalties();
+                else fetchBorrows();
+            };
+
+            const returnBook = (row) => {
+                ElMessageBox.confirm(`确认该名学生（${row.Sname}）已如数将实体书《${row.Bname}》放置在前台？`, '还书扫描确认', {
+                    confirmButtonText: '确认入库', cancelButtonText: '取消', type: 'warning'
+                }).then(() => {
+                    axios.post('/api/admin/return_book', {
+                        borrow_id: row.Borrow_id,
+                        bno: row.Bno
+                    }).then(res => {
+                        if (res.data.code === 200) {
+                            ElMessage.success(res.data.msg);
+                            fetchBorrows(); // 刷新归还记录
+                        } else {
+                            ElMessage.error(res.data.msg);
+                        }
+                    });
+                }).catch(() => {});
+            };
+
+            const payPenalty = (row) => {
+                ElMessageBox.confirm(`确认已收到 ${row.Sname} 缴纳的行政罚款：¥${row.Fine_amount}？`, '缴费人工核销', {
+                    confirmButtonText: '确认已收款', cancelButtonText: '取消操作', type: 'primary'
+                }).then(() => {
+                    axios.post('/api/admin/pay_penalty', {
+                        penalty_id: row.Penalty_id,
+                        sno: row.Sno
+                    }).then(res => {
+                        if (res.data.code === 200) {
+                            ElMessage.success(res.data.msg);
+                            fetchPenalties(); // 刷新罚款状态
+                        } else {
+                            ElMessage.error(res.data.msg);
+                        }
+                    });
+                }).catch(() => {});
+            };
+
+            const goHome = () => window.location.href = '/';
+
+            onMounted(() => {
+                fetchBorrows();
+            });
+
+            return { 
+                activeTab, handleTabClick, isOverdue, goHome,
+                borrowRecords, loadingBorrows, fetchBorrows, returnBook,
+                penaltyRecords, loadingPenalties, fetchPenalties, payPenalty
+            };
+        }
+    });
+    
+    app.use(ElementPlus);
+    registerIcons(app);
+    app.mount('#app');
+</script>
+{% endblock %}

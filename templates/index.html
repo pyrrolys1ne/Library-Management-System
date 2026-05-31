@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - 图书馆管理系统{% endblock %}
+
+{% block header_actions %}
+    <el-tag effect="dark" type="info">未登录状态</el-tag>
+{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; margin-top: 10vh;">
+    <el-card shadow="hover" style="width: 500px; padding: 20px; text-align: center; border-radius: 12px;">
+        <h2>请选择系统入口</h2>
+        <p style="color: #606266; margin-bottom: 30px;">一套现代、极简轻量化的数据库课程实践平台</p>
+        
+        <el-button type="primary" size="large" @click="goTo('/student')" style="width: 100%; margin-bottom: 20px;" round>
+            👨‍🎓 进入学生借阅端 (Student)
+        </el-button>
+        
+        <el-button type="success" size="large" @click="goTo('/admin')" style="width: 100%; margin-left: 0;" round>
+            👨‍💼 进入后台管理端 (Admin)
+        </el-button>
+        <el-divider border-style="dashed" style="margin-top: 40px;"></el-divider>
+        <span style="font-size: 12px; color: #909399;">Powered by Flask & Vue 3 & Element Plus</span>
+    </el-card>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const { createApp } = Vue;
+    createApp({
+        methods: {
+            goTo(path) { window.location.href = path; }
+        }
+    }).use(ElementPlus).mount('#app');
+</script>
+{% endblock %}
