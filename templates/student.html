@@ -13,11 +13,14 @@
         <el-card shadow="never" style="height: 100%;">
             <div style="text-align: center; margin-bottom: 20px;">
                 <el-avatar :size="64" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"></el-avatar>
-                <h3>当前使用学号：[[ currentStudent ]]</h3>
-                <el-tag type="success">安全风控状态: Normal</el-tag>
+                <h3>欢迎，[[ currentUserName ]]</h3>
+                <p style="color: #909399; font-size: 14px;">当前学号：[[ currentStudent ]]</p>
+                <el-tag :type="currentStudentStatus === 'Normal' ? 'success' : 'danger'">
+                    安全风控状态: [[ currentStudentStatus ]]
+                </el-tag>
             </div>
             <el-divider></el-divider>
-            <el-alert title="提示: 该学号为测试数据写死。为了简化我们直接模拟学号为 S001 的张三同学在操作。" type="info" :closable="false"></el-alert>
+            <el-button type="danger" @click="logout" style="width: 100%;" plain>退出登录</el-button>
         </el-card>
     </el-col>
     
@@ -27,26 +30,45 @@
             <el-tabs v-model="activeTab" @tab-click="handleTabClick">
                 <!-- Tab 1: 图书馆大厅 -->
                 <el-tab-pane label="📚 馆藏查询与借阅" name="books">
+                    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                        <el-input 
+                            v-model="searchKeyword" 
+                            placeholder="想搜点什么好书呢... 支持按书名模糊或精确书号查找" 
+                            clearable
+                            style="width: 400px;" 
+                            @keyup.enter="fetchBooks"
+                        >
+                            <template #prefix>
+                                <el-icon><Search /></el-icon>
+                            </template>
+                        </el-input>
+                        <el-button type="primary" @click="fetchBooks">查阅馆藏</el-button>
+                    </div>
+
                     <el-table :data="books" style="width: 100%" v-loading="loading">
-                        <el-table-column prop="Bno" label="图书编号" width="120"></el-table-column>
+                        <el-table-column prop="Bno" label="图书编号" width="100"></el-table-column>
                         <el-table-column prop="Bname" label="书名"></el-table-column>
                         <el-table-column prop="Bauthor" label="作者"></el-table-column>
-                        <el-table-column prop="Bpublisher" label="出版社"></el-table-column>
-                        <el-table-column label="在馆余量" width="100">
+                        <el-table-column label="在馆余量" width="120">
                             <template #default="scope">
                                 <el-tag :type="scope.row.Bcount > 0 ? 'success' : 'danger'">
                                     [[ scope.row.Bcount ]] 本
                                 </el-tag>
+                                <div v-if="scope.row.ReserveCount > 0" style="font-size:12px; color:#E6A23C; margin-top:4px;">
+                                    排队中: [[ scope.row.ReserveCount ]]人
+                                </div>
                             </template>
                         </el-table-column>
-                        <el-table-column label="操作" width="120" align="center">
+                        <el-table-column label="其他人在借" width="100" align="center">
                             <template #default="scope">
-                                <el-button 
-                                    type="primary" 
-                                    size="small" 
-                                    @click="borrowBook(scope.row)" 
-                                    :disabled="scope.row.Bcount <= 0">借书
-                                </el-button>
+                                <el-tag type="info" size="small">已借出 [[ scope.row.BorrowCount || 0 ]]本</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="操作" width="200" align="center">
+                            <template #default="scope">
+                                <el-button type="info" size="small" plain @click="showDetail(scope.row)">详情</el-button>
+                                <el-button v-if="scope.row.Bcount > 0" type="primary" size="small" @click="borrowBook(scope.row)">借书</el-button>
+                                <el-button v-else type="warning" size="small" @click="reserveBook(scope.row)">排队预约</el-button>
                             </template>
                         </el-table-column>
                     </el-table>
@@ -70,20 +92,54 @@
                 </el-tab-pane>
             </el-tabs>
         </el-card>
+        <!-- 图书详情弹窗 -->
+        <el-dialog v-model="detailVisible" :title="'图书详情：' + currentBook.Bname" width="600px" center>
+            <div style="display: flex; gap: 20px;">
+                <!-- 左侧封面 -->
+                <div style="flex: 0 0 150px; text-align: center;">
+                    <img :src="currentBook.cover_image || '/static/default.svg'" alt="封面"
+                         @error="e => e.target.src = '/static/default.svg'"
+                         style="width: 100%; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                </div>
+                <!-- 右侧信息 -->
+                <div style="flex: 1;">
+                    <p><b>编号：</b>[[ currentBook.Bno ]]</p>
+                    <p><b>作者：</b>[[ currentBook.Bauthor ]]</p>
+                    <p><b>出版社：</b>[[ currentBook.Bpublisher ]]</p>
+                    <p><b>状态标签：</b>
+                        <el-tag :type="currentBook.Status_Label === 'Available' ? 'success' : 'danger'" size="small">
+                            [[ currentBook.Status_Label || (currentBook.Bcount > 0 ? 'Available' : 'Out of Stock') ]]
+                        </el-tag>
+                    </p>
+                    <div style="margin-top: 15px;">
+                        <b>内容简介：</b>
+                        <p style="margin-top: 5px; color: #606266; line-height: 1.5;">
+                            [[ currentBook.description || '暂无简介...' ]]
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <div class="dialog-footer">
+                    <el-button @click="detailVisible = false">关闭</el-button>
+                    <el-button v-if="currentBook.attachment_pdf" type="success" plain @click="openPDF(currentBook)">下载电子版</el-button>
+                </div>
+            </template>
+        </el-dialog>
     </el-col>
 </el-row>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Flask 的 Jinja 会渲染 {{}}，为了防止和 Vue 的 {{}} 引起冲突。
-    // 我们强制改写 Vue 的插值符号为 [[ ]] 
+    // Vue 与 Jinja2 分隔符冲突：使用 [[ ]] 替代 {{ }}
     const { createApp, ref, onMounted } = Vue;
     const { ElMessage, ElMessageBox } = ElementPlus;
+    const { Search } = ElementPlusIconsVue;
 
     const app = createApp({
         compilerOptions: {
-            delimiters: ['[[', ']]'] // 重要：改写 Vue 解析模板标识
+            delimiters: ['[[', ']]']
         },
         setup() {
             const activeTab = ref('books');
@@ -93,17 +149,55 @@
             const books = ref([]);
             const records = ref([]);
             
-            // 写死的测试账户，对应插入数据里的 S001（张三）
-            const currentStudent = ref('S001');
+            const currentStudent = ref('');
+            const currentUserName = ref('');
+            const currentStudentStatus = ref('Normal'); // 存储动态状态
 
-            // 1. 获取图书
+            // 搜索与详情功能变量
+            const searchKeyword = ref('');
+            const detailVisible = ref(false);
+            const currentBook = ref({});
+
+            // 获取当前登录用户
+            const fetchUserInfo = async () => {
+                try {
+                    const res = await axios.get('/api/user_info');
+                    if (res.data.code === 200 && res.data.data.role === 'student') {
+                        currentStudent.value = res.data.data.user_id;
+                        currentUserName.value = res.data.data.user_name;
+                        currentStudentStatus.value = res.data.data.status;
+                        fetchBooks(); // 获取数据
+                    } else {
+                        window.location.href = '/';
+                    }
+                } catch (e) {
+                    window.location.href = '/';
+                }
+            };
+
+            // 1. 获取图书 (支持关键字)
             const fetchBooks = () => {
                 loading.value = true;
-                axios.get('/api/books').then(res => {
+                axios.get('/api/books', { params: { keyword: searchKeyword.value } }).then(res => {
                     if (res.data.code === 200) {
                         books.value = res.data.data;
                     }
                 }).finally(() => { loading.value = false; });
+            };
+
+            // 展示详情
+            const showDetail = (book) => {
+                currentBook.value = book;
+                detailVisible.value = true;
+            };
+
+            // 打开/下载电子版PDF
+            const openPDF = (book) => {
+                if (book.attachment_pdf) {
+                    window.open(book.attachment_pdf, '_blank');
+                } else {
+                    ElMessage.warning('该书暂无电子版资源');
+                }
             };
 
             // 2. 借书业务（调用我们写的牛逼事务）
@@ -129,7 +223,31 @@
                 }).catch(() => {});
             };
 
-            // 3. 获取自己的借阅历史
+            // 3. 预约业务
+            const reserveBook = (book) => {
+                if (currentStudentStatus.value === 'Suspended') {
+                    ElMessage.error('您的账号已被冻结，无法预约该书！请先前往缴清罚款。');
+                    return;
+                }
+                
+                ElMessageBox.confirm(`由于《${book.Bname}》已无库存 (当前有 ${book.ReserveCount} 人在排队)，系统将为您登记排队预约。`, '排队预约确认', {
+                    confirmButtonText: '确定排队',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    const payload = { sno: currentStudent.value, bno: book.Bno };
+                    axios.post('/api/reserve', payload).then(res => {
+                        if (res.data.code === 200 || res.data.code === 400) {
+                            res.data.code === 200 ? ElMessage.success(res.data.msg) : ElMessage.warning(res.data.msg);
+                            fetchBooks();
+                        } else {
+                            ElMessage.error(res.data.msg);
+                        }
+                    });
+                }).catch(() => {});
+            };
+
+            // 4. 获取自己的借阅历史
             const fetchRecords = () => {
                 loadingRecords.value = true;
                 axios.get(`/api/student/${currentStudent.value}/records`).then(res => {
@@ -148,17 +266,23 @@
             };
             
             const goHome = () => window.location.href = '/';
+            const logout = () => {
+                axios.post('/api/logout').then(() => {
+                    window.location.href = '/';
+                });
+            };
 
             // 页面挂载时初始化数据
             onMounted(() => {
-                fetchBooks();
+                fetchUserInfo();
             });
 
             return { 
-                currentStudent, activeTab,
-                books, loading, fetchBooks, borrowBook,
+                currentStudent, currentUserName, currentStudentStatus, activeTab,
+                books, loading, fetchBooks, borrowBook, reserveBook,
                 records, loadingRecords, fetchRecords, 
-                handleTabClick, goHome 
+                searchKeyword, detailVisible, currentBook, showDetail, openPDF, window,
+                handleTabClick, goHome, logout
             };
         }
     });

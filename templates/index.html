@@ -8,30 +8,78 @@
 
 {% block content %}
 <div style="display: flex; justify-content: center; align-items: center; margin-top: 10vh;">
-    <el-card shadow="hover" style="width: 500px; padding: 20px; text-align: center; border-radius: 12px;">
-        <h2>请选择系统入口</h2>
-        <p style="color: #606266; margin-bottom: 30px;">一套现代、极简轻量化的数据库课程实践平台</p>
+    <el-card shadow="hover" style="width: 400px; padding: 20px; border-radius: 12px;">
+        <h2 style="text-align: center; margin-bottom: 30px;">系统登录</h2>
+        <el-tabs v-model="loginForm.role" stretch>
+            <el-tab-pane label="👨‍🎓 学生端" name="student"></el-tab-pane>
+            <el-tab-pane label="👨‍💼 管理端" name="admin"></el-tab-pane>
+        </el-tabs>
         
-        <el-button type="primary" size="large" @click="goTo('/student')" style="width: 100%; margin-bottom: 20px;" round>
-            👨‍🎓 进入学生借阅端 (Student)
-        </el-button>
-        
-        <el-button type="success" size="large" @click="goTo('/admin')" style="width: 100%; margin-left: 0;" round>
-            👨‍💼 进入后台管理端 (Admin)
-        </el-button>
+        <el-form :model="loginForm" label-width="60px" style="margin-top: 20px;" @keyup.enter="handleLogin">
+            <el-form-item label="账号">
+                <el-input v-model="loginForm.username" :placeholder="loginForm.role === 'student' ? '请输入学号 (S001 / S002)' : '请输入管理员编号 (A001)'">
+                    <template #prefix><el-icon><User /></el-icon></template>
+                </el-input>
+            </el-form-item>
+            <el-form-item label="密码">
+                <el-input v-model="loginForm.password" type="password" show-password placeholder="默认密码: 123456">
+                    <template #prefix><el-icon><Lock /></el-icon></template>
+                </el-input>
+            </el-form-item>
+            <el-button type="primary" size="large" @click="handleLogin" style="width: 100%; margin-top: 10px;" :loading="loading" round>
+                登录系统
+            </el-button>
+        </el-form>
         <el-divider border-style="dashed" style="margin-top: 40px;"></el-divider>
-        <span style="font-size: 12px; color: #909399;">Powered by Flask & Vue 3 & Element Plus</span>
+        <div style="text-align: center;">
+            <span style="font-size: 12px; color: #909399;">Powered by Flask & Vue 3 & Element Plus</span>
+        </div>
     </el-card>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const { createApp } = Vue;
-    createApp({
-        methods: {
-            goTo(path) { window.location.href = path; }
+    const { createApp, ref } = Vue;
+    const { ElMessage } = ElementPlus;
+
+    const app = createApp({
+        setup() {
+            const loading = ref(false);
+            const loginForm = ref({
+                role: 'student',
+                username: '',
+                password: ''
+            });
+
+            const handleLogin = () => {
+                if (!loginForm.value.username || !loginForm.value.password) {
+                    ElMessage.warning('请输入账号和密码！');
+                    return;
+                }
+                loading.value = true;
+                axios.post('/api/login', loginForm.value).then(res => {
+                    if (res.data.code === 200) {
+                        ElMessage.success('登录成功！');
+                        setTimeout(() => {
+                            window.location.href = loginForm.value.role === 'student' ? '/student' : '/admin';
+                        }, 500);
+                    } else {
+                        ElMessage.error(res.data.msg);
+                    }
+                }).catch(() => {
+                    ElMessage.error('网络错误或服务器异常');
+                }).finally(() => {
+                    loading.value = false;
+                });
+            };
+
+            return { loginForm, loading, handleLogin };
         }
-    }).use(ElementPlus).mount('#app');
+    });
+
+    app.use(ElementPlus);
+    registerIcons(app);
+    app.mount('#app');
 </script>
 {% endblock %}

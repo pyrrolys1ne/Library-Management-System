@@ -15,3 +15,8 @@ ENV/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Uploaded media (large binary files)
+static/uploads/pdfs/*
+static/uploads/covers/*
+!static/uploads/**/.gitkeep

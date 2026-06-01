@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
+  <rect width="200" height="280" fill="#f0f2f5" rx="8"/>
+  <rect x="40" y="60" width="120" height="120" fill="#dcdfe6" rx="8"/>
+  <text x="100" y="130" text-anchor="middle" fill="#909399" font-size="40" font-family="sans-serif">📚</text>
+  <text x="100" y="210" text-anchor="middle" fill="#909399" font-size="14" font-family="sans-serif">暂无封面</text>
+</svg>

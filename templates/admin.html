@@ -13,10 +13,12 @@
         <el-card shadow="never" style="height: 100%;">
             <div style="text-align: center; margin-bottom: 20px;">
                 <el-avatar :size="64" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"></el-avatar>
-                <h3>工号：A001</h3>
+                <h3>欢迎，[[ currentAdminName ]]</h3>
+                <p style="color: #909399; font-size: 14px;">管理员编号/工号：[[ currentAdmin ]]</p>
                 <el-tag type="warning">权限级别: Admin</el-tag>
             </div>
             <el-divider></el-divider>
+            <el-button type="danger" @click="logout" style="width: 100%; margin-bottom: 20px;" plain>退出登录</el-button>
             <p style="color: #606266; font-size:14px; line-height:1.6">管理员工作区包含以下职能：<br><br>1. 处理学生的还书请求，系统底层<el-text type="danger">触发器</el-text>会自动核算是否超期。<br><br>2. 收取学生超期罚款，全部缴清后自动解除学生的封禁状态。</p>
         </el-card>
     </el-col>
@@ -83,10 +85,84 @@
                         </el-table-column>
                     </el-table>
                 </el-tab-pane>
+
+                <!-- Tab 3: 图书底库管理 -->
+                <el-tab-pane label="📖 图书底库管理" name="inventory">
+                    <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+                        <el-input
+                            v-model="adminSearchKeyword"
+                            placeholder="搜索书名或书号..."
+                            clearable
+                            style="width: 300px;"
+                            @keyup.enter="searchBooks"
+                        >
+                            <template #prefix><el-icon><Search /></el-icon></template>
+                        </el-input>
+                        <el-button type="primary" @click="searchBooks">搜索馆藏</el-button>
+                        <el-button type="primary" size="small" icon="Plus" @click="showAddDialog = true">新书入库登账</el-button>
+                        <el-button type="primary" plain size="small" icon="Refresh" @click="fetchBooks()">刷新全部</el-button>
+                    </div>
+                    <el-table :data="booksList" style="width: 100%" border v-loading="loadingBooks">
+                        <el-table-column prop="Bno" label="书号" width="80"></el-table-column>
+                        <el-table-column prop="Bname" label="书名"></el-table-column>
+                        <el-table-column label="库存/排队" width="150" align="center">
+                            <template #default="scope">
+                                <el-tag :type="scope.row.Bcount > 0 ? 'success' : 'danger'">[[ scope.row.Bcount ]]本</el-tag>
+                                <el-tag v-if="scope.row.ReserveCount > 0" type="warning" style="margin-left: 5px; cursor: pointer" @click="viewQueue(scope.row)">
+                                    排队: [[ scope.row.ReserveCount ]]人
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="出/入库" width="220" align="center">
+                            <template #default="scope">
+                                <el-button type="success" size="small" icon="Plus" circle @click="updateStock(scope.row.Bno, 1)" title="增加库存"></el-button>
+                                <el-button type="danger" size="small" icon="Minus" circle @click="updateStock(scope.row.Bno, -1)" :disabled="scope.row.Bcount <= 0" title="减少库存"></el-button>
+                                <el-button size="small" @click="viewQueue(scope.row)">看排队表</el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </el-tab-pane>
             </el-tabs>
         </el-card>
     </el-col>
 </el-row>
+
+<!-- 新书入库弹窗 -->
+<el-dialog v-model="showAddDialog" title="新书入库登账" width="500px">
+    <el-form :model="newBookForm" label-width="90px">
+        <el-alert title="书号将由系统自动分配" type="info" center show-icon style="margin-bottom: 20px;"></el-alert>
+        <el-form-item label="书名"><el-input v-model="newBookForm.bname"></el-input></el-form-item>
+        <el-form-item label="作者"><el-input v-model="newBookForm.bauthor"></el-input></el-form-item>
+        <el-form-item label="出版社"><el-input v-model="newBookForm.bpublisher"></el-input></el-form-item>
+        <el-form-item label="图书简介">
+            <el-input type="textarea" v-model="newBookForm.description" rows="3"></el-input>
+        </el-form-item>
+        <el-form-item label="封面图片">
+            <input type="file" @change="e => newBookForm.cover = e.target.files[0]" accept="image/*" />
+        </el-form-item>
+        <el-form-item label="试读PDF">
+            <input type="file" @change="e => newBookForm.pdf = e.target.files[0]" accept=".pdf" />
+        </el-form-item>
+        <el-form-item label="入库数量"><el-input-number v-model="newBookForm.bcount" :min="1"></el-input-number></el-form-item>
+    </el-form>
+    <template #footer>
+        <span class="dialog-footer">
+            <el-button @click="showAddDialog = false">取消</el-button>
+            <el-button type="primary" @click="submitAddBook" :loading="isSubmitting">确认入库</el-button>
+        </span>
+    </template>
+</el-dialog>
+
+<!-- 排队可视化弹窗 -->
+<el-dialog v-model="showQueueDialog" title="当前排队明细" width="500px">
+    <el-table :data="queueList" border stripe>
+        <el-table-column type="index" label="顺位" width="60" align="center"></el-table-column>
+        <el-table-column prop="Sname" label="姓名"></el-table-column>
+        <el-table-column prop="Sno" label="学号" width="100"></el-table-column>
+        <el-table-column prop="Reserve_date" label="预约时间" width="160"></el-table-column>
+    </el-table>
+</el-dialog>
+
 {% endblock %}
 
 {% block scripts %}
@@ -100,9 +176,37 @@
             const activeTab = ref('borrows');
             const loadingBorrows = ref(false);
             const loadingPenalties = ref(false);
+            const loadingBooks = ref(false);
             
             const borrowRecords = ref([]);
             const penaltyRecords = ref([]);
+            const booksList = ref([]);
+            
+            const showAddDialog = ref(false);
+            const showQueueDialog = ref(false);
+            const isSubmitting = ref(false);
+            const newBookForm = ref({ bname: '', bauthor: '', bpublisher: '', bcount: 1, description: '', cover: null, pdf: null });
+            const queueList = ref([]);
+            const adminSearchKeyword = ref('');
+
+            const currentAdmin = ref('');
+            const currentAdminName = ref('');
+
+            // 获取当前登录管理员
+            const fetchUserInfo = async () => {
+                try {
+                    const res = await axios.get('/api/user_info');
+                    if (res.data.code === 200 && res.data.data.role === 'admin') {
+                        currentAdmin.value = res.data.data.user_id;
+                        currentAdminName.value = res.data.data.user_name;
+                        fetchBorrows(); // 获取数据
+                    } else {
+                        window.location.href = '/';
+                    }
+                } catch (e) {
+                    window.location.href = '/';
+                }
+            };
 
             // 前端只做展示计算。后台真正的定性靠 MySQL 触发器完成。
             const isOverdue = (dueDateStr) => {
@@ -173,15 +277,93 @@
             };
 
             const goHome = () => window.location.href = '/';
+            const logout = () => {
+                axios.post('/api/logout').then(() => {
+                    window.location.href = '/';
+                });
+            };
+
+            const fetchBooks = () => {
+                loadingBooks.value = true;
+                const params = adminSearchKeyword.value ? { keyword: adminSearchKeyword.value } : {};
+                axios.get('/api/books', { params }).then(res => {
+                    if (res.data.code === 200) {
+                        booksList.value = res.data.data;
+                    }
+                }).finally(() => { loadingBooks.value = false; });
+            };
+
+            const searchBooks = () => {
+                // 搜索时从第一页开始，直接调用 fetchBooks（已带 keyword 参数）
+                fetchBooks();
+            };
+
+            const submitAddBook = () => {
+                isSubmitting.value = true;
+                const formData = new FormData();
+                formData.append('bname', newBookForm.value.bname);
+                formData.append('bauthor', newBookForm.value.bauthor);
+                formData.append('bpublisher', newBookForm.value.bpublisher);
+                formData.append('bcount', newBookForm.value.bcount);
+                formData.append('description', newBookForm.value.description);
+                if (newBookForm.value.cover) formData.append('cover', newBookForm.value.cover);
+                if (newBookForm.value.pdf) formData.append('pdf', newBookForm.value.pdf);
+
+                axios.post('/api/admin/book/add', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                }).then(res => {
+                    if (res.data.code === 200) {
+                        ElMessage.success(res.data.msg);
+                        showAddDialog.value = false;
+                        newBookForm.value = { bname: '', bauthor: '', bpublisher: '', bcount: 1, description: '', cover: null, pdf: null };
+                        fetchBooks();
+                    } else {
+                        ElMessage.error(res.data.msg);
+                    }
+                }).finally(() => {
+                    isSubmitting.value = false;
+                });
+            };
+
+            const updateStock = (bno, direction) => {
+                axios.post('/api/admin/book/stock', {
+                    bno: bno,
+                    direction: direction
+                }).then(res => {
+                    if (res.data.code === 200) {
+                        ElMessage.success('库存更新成功');
+                        fetchBooks();
+                    } else {
+                        ElMessage.error(res.data.msg);
+                    }
+                });
+            };
+
+            const viewQueue = (book) => {
+                axios.get(`/api/book/${book.Bno}/queue`).then(res => {
+                    if (res.data.code === 200) {
+                        queueList.value = res.data.data;
+                        showQueueDialog.value = true;
+                    } else {
+                        ElMessage.error(res.data.msg);
+                    }
+                });
+            };
 
             onMounted(() => {
-                fetchBorrows();
+                fetchUserInfo();
+                fetchBooks();
             });
 
             return { 
+                currentAdmin, currentAdminName, logout,
                 activeTab, handleTabClick, isOverdue, goHome,
                 borrowRecords, loadingBorrows, fetchBorrows, returnBook,
-                penaltyRecords, loadingPenalties, fetchPenalties, payPenalty
+                penaltyRecords, loadingPenalties, fetchPenalties, payPenalty,
+                booksList, loadingBooks,
+                adminSearchKeyword, searchBooks,
+                showAddDialog, showQueueDialog, newBookForm, queueList, isSubmitting,
+                fetchBooks, submitAddBook, updateStock, viewQueue
             };
         }
     });

@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}图书馆信息管理系统{% endblock %}</title>
     
-    <!-- 引入 Vue 3 -->
+    <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- 引入 Element Plus 样式与脚本 -->
+    <!-- Element Plus -->
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
     <script src="https://unpkg.com/element-plus"></script>
-    <!-- 引入 Element Plus 图标库 -->
+    <!-- Element Plus Icons -->
     <script src="https://unpkg.com/@element-plus/icons-vue"></script>
-    <!-- 引入 Axios 请求库 -->
+    <!-- Axios -->
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 
     <style>
@@ -23,7 +23,6 @@
         .system-title { font-size: 20px; font-weight: bold; margin: 0;}
         .main-container { padding: 20px; flex: 1; }
         
-        /* 避免 Vue 加载时的闪烁 */
         [v-cloak] { display: none; }
     </style>
     {% block extra_head %}{% endblock %}
@@ -44,16 +43,16 @@
         </main>
     </div>
 
-    <!-- 所有的 Vue 脚本放置区 -->
-    {% block scripts %}{% endblock %}
-    
+    <!-- 注册全局图标 -->
     <script>
-        // 注册全局 Icon 的常用方法
         function registerIcons(app) {
             for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
                 app.component(key, component)
             }
         }
     </script>
+    
+    <!-- Vue 脚本 -->
+    {% block scripts %}{% endblock %}
 </body>
 </html>
