@@ -132,7 +132,7 @@
 
 {% block scripts %}
 <script>
-    // Vue 与 Jinja2 分隔符冲突：使用 [[ ]] 替代 {{ }}
+    // Vue 与 Jinja2 模板冲突，使用 [[ ]] 作为 Vue 插值分隔符
     const { createApp, ref, onMounted } = Vue;
     const { ElMessage, ElMessageBox } = ElementPlus;
     const { Search } = ElementPlusIconsVue;
