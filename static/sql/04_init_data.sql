@@ -20,11 +20,11 @@ INSERT INTO Student (Sno, Spassword, Sname, Ssex, Sdept, Sstatus) VALUES
 
 -- 图书
 INSERT INTO Book (Bno, Bname, Bauthor, Bpublisher, Bcount, cover_image, attachment_pdf, description) VALUES
-('B001', '数据库系统概念', 'Silberschatz', '机械工业出版社', 5, '/static/uploads/covers/B001_cover.jpg', '/static/uploads/pdfs/B001_preview.pdf', '数据库领域的经典教材，涵盖关系模型、SQL、数据库设计、事务管理等核心内容。'),
-('B002', '深入理解计算机系统', 'Randal E. Bryant', '机械工业出版社', 2, '/static/uploads/covers/B002_cover.jpg', '/static/uploads/pdfs/B002_preview.pdf', '从程序员视角阐述计算机系统本质概念，涵盖处理器架构、存储器层次、链接、异常控制流等主题。'),
-('B003', '计算机网络:自顶向下方法', 'Kurose', '机械工业出版社', 0, '/static/uploads/covers/B003_cover.jpg', '/static/uploads/pdfs/B003_preview.pdf', '自顶向下教授计算机网络，从应用层逐渐深入到物理层，涵盖HTTP、TCP/IP、DNS、网络安全等。'),
-('B004', '算法导论', 'Thomas H. Cormen', '机械工业出版社', 1, '/static/uploads/covers/B004_cover.jpg', '/static/uploads/pdfs/B004_preview.pdf', '全面介绍计算机算法，涵盖排序、图算法、动态规划、贪心算法、NP完全性等经典主题。'),
-('B005', '设计模式', 'GoF', '机械工业出版社', 3, '/static/uploads/covers/B005_cover.jpg', '/static/uploads/pdfs/B005_preview.pdf', '软件工程界经典之作，收录23种面向对象设计模式，包括创建型、结构型和行为型三大类。');
+('B001', '数据库系统概念', 'Silberschatz', '机械工业出版社', 5, '/static/uploads/covers/B001_cover.png', '/static/uploads/pdfs/B001_preview.pdf', '数据库领域的经典教材，涵盖关系模型、SQL、数据库设计、事务管理等核心内容。'),
+('B002', '深入理解计算机系统', 'Randal E. Bryant', '机械工业出版社', 2, '/static/uploads/covers/B002_cover.png', '/static/uploads/pdfs/B002_preview.pdf', '从程序员视角阐述计算机系统本质概念，涵盖处理器架构、存储器层次、链接、异常控制流等主题。'),
+('B003', '计算机网络:自顶向下方法', 'Kurose', '机械工业出版社', 0, '/static/uploads/covers/B003_cover.png', '/static/uploads/pdfs/B003_preview.pdf', '自顶向下教授计算机网络，从应用层逐渐深入到物理层，涵盖HTTP、TCP/IP、DNS、网络安全等。'),  -- 仅有一册被 S001 借出，库存为 0，S005 预约中
+('B004', '算法导论', 'Thomas H. Cormen', '机械工业出版社', 1, '/static/uploads/covers/B004_cover.png', '/static/uploads/pdfs/B004_preview.pdf', '全面介绍计算机算法，涵盖排序、图算法、动态规划、贪心算法、NP完全性等经典主题。'),
+('B005', '设计模式', 'GoF', '机械工业出版社', 3, '/static/uploads/covers/B005_cover.png', '/static/uploads/pdfs/B005_preview.pdf', '软件工程界经典之作，收录23种面向对象设计模式，包括创建型、结构型和行为型三大类。');
 
 -- 管理员
 INSERT INTO Admin (Ano, Apassword, Aname, Ajobno) VALUES
@@ -36,7 +36,8 @@ INSERT INTO BorrowRecord (Borrow_id, Sno, Bno, Ano, Borrow_date, Due_date, Retur
 (1, 'S001', 'B001', 'A001', '2026-05-01', '2026-06-01', NULL),
 (2, 'S002', 'B002', 'A002', '2026-04-01', '2026-05-01', NULL),
 (3, 'S003', 'B004', 'A001', '2026-03-01', '2026-04-01', '2026-04-10'),
-(4, 'S004', 'B005', 'A002', '2026-02-01', '2026-03-01', '2026-03-05');
+(4, 'S004', 'B005', 'A002', '2026-02-01', '2026-03-01', '2026-03-05'),
+(5, 'S001', 'B003', 'A001', '2026-05-15', '2026-06-15', NULL);
 
 -- 罚款记录
 INSERT INTO PenaltyInfo (Penalty_id, Borrow_id, Sno, Days_overdue, Fine_amount, Pstatus) VALUES

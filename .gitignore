@@ -20,3 +20,10 @@ Thumbs.db
 static/uploads/pdfs/*
 static/uploads/covers/*
 !static/uploads/**/.gitkeep
+
+# Report
+report/
+
+# claude
+.claude/
+

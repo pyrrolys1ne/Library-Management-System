@@ -1,6 +1,10 @@
 -- 02: 触发器
 USE library_db;
 
+DROP TRIGGER IF EXISTS trg_before_book_stock_update;
+DROP TRIGGER IF EXISTS trg_after_book_stock_update;
+DROP TRIGGER IF EXISTS trg_after_return;
+
 DELIMITER //
 
 -- 还书时自动核算超期罚款并冻结学生
@@ -24,8 +28,8 @@ END;
 //
 
 -- 库存恢复时自动消费首位有效预约
-CREATE TRIGGER trg_after_book_stock_update
-AFTER UPDATE ON Book
+CREATE TRIGGER trg_before_book_stock_update
+BEFORE UPDATE ON Book
 FOR EACH ROW
 BEGIN
     DECLARE v_first_reserve_id INT;
@@ -40,9 +44,9 @@ BEGIN
 
         IF v_first_reserve_id IS NOT NULL THEN
             UPDATE ReserveInfo SET Rstatus = 'Completed' WHERE Reserve_id = v_first_reserve_id;
-
             INSERT INTO BorrowRecord (Sno, Bno, Ano, Borrow_date, Due_date)
             VALUES (v_sno, NEW.Bno, 'A001', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY));
+            SET NEW.Bcount = NEW.Bcount - 1;
         END IF;
     END IF;
 END;

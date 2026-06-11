@@ -234,34 +234,12 @@ def return_book():
         conn = db.get_conn()
         cursor = conn.cursor()
 
-        ano = session.get('user_id', 'A001')
-
         cursor.execute("UPDATE BorrowRecord SET Return_date = CURDATE() WHERE Borrow_id = %s", (borrow_id,))
 
-        cursor.execute("""
-            SELECT Reserve_id, Sno FROM ReserveInfo
-            WHERE Bno = %s AND Rstatus = 'Active' AND Expire_date >= CURDATE()
-            ORDER BY Reserve_date ASC, Reserve_id ASC LIMIT 1
-        """, (bno,))
-        reserver = cursor.fetchone()
-
-        msg = '归还成功，已自动核算可能产生的违期。'
-
-        if reserver:
-            cursor.execute("UPDATE ReserveInfo SET Rstatus = 'Completed' WHERE Reserve_id = %s", (reserver['Reserve_id'],))
-            cursor.execute("""
-                INSERT INTO BorrowRecord (Sno, Bno, Ano, Borrow_date, Due_date)
-                VALUES (%s, %s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY))
-            """, (reserver['Sno'], bno, ano))
-
-            cursor.execute("SELECT Sname FROM Student WHERE Sno=%s", (reserver['Sno'],))
-            r_name = cursor.fetchone()['Sname']
-            msg += f' 此书已有排队，已自动分配转借给预约学生【{r_name}】！'
-        else:
-            cursor.execute("UPDATE Book SET Bcount = Bcount + 1 WHERE Bno = %s", (bno,))
+        cursor.execute("UPDATE Book SET Bcount = Bcount + 1 WHERE Bno = %s", (bno,))
 
         conn.commit()
-        return jsonify({'code': 200, 'msg': msg})
+        return jsonify({'code': 200, 'msg': '归还成功，已自动核算可能产生的违期。'})
     except Exception as e:
         traceback.print_exc()
         return jsonify({'code': 500, 'msg': '归还失败：' + str(e)})
@@ -396,29 +374,11 @@ def update_stock():
                 return jsonify({'code': 200, 'msg': '库存与在借皆为0，已将该书目从底库彻底移除。'})
 
         cursor.execute("UPDATE Book SET Bcount = %s WHERE Bno = %s", (new_count, bno))
-        msg = '库存更新成功'
-
-        if delta > 0:
-            cursor.execute("""
-                SELECT Reserve_id, Sno FROM ReserveInfo
-                WHERE Bno = %s AND Rstatus = 'Active' AND Expire_date >= CURDATE()
-                ORDER BY Reserve_date ASC, Reserve_id ASC LIMIT 1
-            """, (bno,))
-            reserver = cursor.fetchone()
-
-            if reserver and new_count > 0:
-                ano = session.get('user_id', 'A001')
-                cursor.execute("UPDATE ReserveInfo SET Rstatus = 'Completed' WHERE Reserve_id = %s", (reserver['Reserve_id'],))
-                cursor.execute("""
-                    INSERT INTO BorrowRecord (Sno, Bno, Ano, Borrow_date, Due_date)
-                    VALUES (%s, %s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY))
-                """, (reserver['Sno'], bno, ano))
-                cursor.execute("UPDATE Book SET Bcount = Bcount - 1 WHERE Bno = %s", (bno,))
-                msg = '入库成功。库存已自动分配流转给排队首位的学生！'
 
         conn.commit()
-        return jsonify({'code': 200, 'msg': msg})
+        return jsonify({'code': 200, 'msg': '库存更新成功'})
     except Exception as e:
+        traceback.print_exc()
         return jsonify({'code': 500, 'msg': str(e)})
 
 if __name__ == '__main__':

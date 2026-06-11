@@ -17,7 +17,10 @@
 Lab2/
 ├── app.py                  # Flask 主应用 (路由、API、业务逻辑)
 ├── database.py             # 数据库连接池封装 (PooledDB + PyMySQL)
-├── ER.py                   # E-R 图生成脚本 (Graphviz)
+├── er/
+│   ├── ER.py               # E-R 图生成脚本 (Graphviz)
+│   ├── Library_ER_Diagram.png  # 生成的 E-R 图
+│   └── 需求分析.md          # 需求分析文档
 ├── requirements.txt        # Python 依赖清单
 ├── static/
 │   ├── default.svg         # 默认封面占位图
@@ -31,7 +34,7 @@ Lab2/
 │   └── admin.html          # 管理端后台 (还书、罚款处理、图书底库管理)
 └── sql/
     ├── 01_ddl_tables.sql   # DDL：6 张核心表定义
-    ├── 02_triggers.sql     # 2 个触发器 (还书违约核算、入库自动分配预约)
+    ├── 02_triggers.sql     # 2 个触发器：还书自动核算罚款 + 入库自动分配预约
     ├── 03_procedures.sql   # 1 个借书存储过程 + 1 个函数 + 1 个搜索过程
     └── 04_init_data.sql    # 测试数据 (5 学生、5 图书、2 管理员、4 借阅记录等)
 ```
@@ -47,7 +50,7 @@ Lab2/
 | ReserveInfo    | 预约排队信息   | Reserve_id (PK), Sno→Student, Bno→Book, Reserve_date, Expire_date, Rstatus |
 | PenaltyInfo    | 违期罚款信息   | Penalty_id (PK), Borrow_id→BorrowRecord, Sno→Student, Days_overdue, Fine_amount, Pstatus |
 
-ER 图见 `Library_ER_Diagram.png`，可由 `python ER.py` 重新生成。
+ER 图见 `er/Library_ER_Diagram.png`，可由 `python er/ER.py` 重新生成。
 
 ## 核心业务功能
 
@@ -127,8 +130,8 @@ python app.py
 | `sp_borrow_book`            | 存储过程 | 借书事务：行级锁校验状态→罚单→库存，ACID 保证       |
 | `sp_search_books`           | 存储过程 | 按关键字搜索图书 (书名模糊 + 书号精确)               |
 | `fn_get_book_status_label`  | 函数     | 返回图书状态标签 (Available / 其他人在借 / Out of Stock) |
-| `trg_after_return`          | 触发器   | 还书时自动核算超期天数并生成罚单 + 冻结学生          |
-| `trg_after_book_stock_update` | 触发器 | 库存从 0 变 >0 时自动消费首位预约，完成流转分配      |
+| `trg_after_return`              | 触发器   | 还书时自动核算超期天数并生成罚单 + 冻结学生          |
+| `trg_before_book_stock_update`  | 触发器   | 入库时自动消费首位有效预约，BEFORE UPDATE 直接修正库存 |
 
 ## 封面上传命名规范
 
